@@ -34,6 +34,11 @@ MODEL_PRETTY_NAMES = {
     "gpt-4o-mini": "OpenAI GPT-4o Mini",
     "gpt-4o": "OpenAI GPT-4o",
     "gpt-4.5-preview": "OpenAI GPT-4.5 Preview",
+    # Anthropic
+    "claude-3-7-sonnet-20250219": "Claude 3.7 Sonnet",
+    "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet",
+    "claude-3-5-haiku-20241022": "Claude 3.5 Haiku",
+    "claude-3-opus-20240229": "Claude 3 Opus",
 }
 
 def _create_bluesky_client() -> Client | None:

@@ -8,9 +8,10 @@ from abc import ABC, abstractmethod # For base class
 import google.generativeai as genai
 from google.api_core.exceptions import ResourceExhausted
 from openai import OpenAI, RateLimitError, APIError # Import OpenAI client and specific errors
+import anthropic # Import Anthropic client
 
 # Config
-from config import GEMINI_API_KEY, OPENAI_API_KEY
+from config import GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
 
 logger = logging.getLogger(__name__)
 conv_logger = logging.getLogger("conversation")
@@ -311,6 +312,81 @@ class OpenAIPlayer(BaseAIPlayer):
         conv_logger.error(f"--- Failed to get valid guess from OpenAI after {max_retries} attempts --- ")
         return None
 
+# --- Anthropic Player --- 
+class AnthropicPlayer(BaseAIPlayer):
+    """AI Player implementation using the Anthropic API."""
+
+    def _configure_client(self):
+        if not ANTHROPIC_API_KEY:
+            logger.error("Anthropic API Key not configured.")
+            raise ValueError("ANTHROPIC_API_KEY is not set for AnthropicPlayer.")
+        try:
+            self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+            logger.info("Anthropic API client configured.")
+        except Exception as e:
+            logger.error(f"Failed to configure Anthropic API: {e}")
+            raise
+
+    def _initialize_model(self):
+        logger.info(f"Initializing AnthropicPlayer with model: {self.model_name}")
+        if not hasattr(self, 'client') or not self.client:
+            raise RuntimeError("Anthropic client was not configured before model initialization.")
+        pass # Model is ready to use via self.client
+
+    def get_ai_guess(self, remaining_words: list[str], attempt_history: list, max_retries=3) -> list[str] | None:
+        if not remaining_words or len(remaining_words) < 4:
+            logger.error("Not enough remaining words for a guess.")
+            return None
+
+        # Create a set of valid words for validation
+        valid_word_set = set(word.upper() for word in remaining_words)
+
+        # Build the prompt
+        prompt = self._build_prompt(remaining_words, attempt_history)
+
+        # Prepare messages for Anthropic
+        messages = [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ]
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Sending request to Anthropic API (Model: {self.model_name}, Attempt {attempt + 1}/{max_retries})...")
+                response = self.client.messages.create(
+                    model=self.model_name,
+                    max_tokens=1024,
+                    messages=messages,
+                    temperature=0.7
+                )
+                
+                response_text = response.content[0].text.strip()
+                parsed_guess = self._parse_response(response_text, valid_word_set)
+
+                if parsed_guess:
+                    return parsed_guess
+                else:
+                    logger.warning(f"Failed to parse valid group from Anthropic response on attempt {attempt + 1}. Retrying...")
+                    conv_logger.debug(f"--- Failed to parse Anthropic response on attempt {attempt + 1} ---")
+                    # Add a reminder message for the next attempt
+                    messages.append({"role": "assistant", "content": response_text})
+                    messages.append({"role": "user", "content": "That wasn't quite right. Please remember to return exactly four words from the list, separated only by commas."})
+                    time.sleep(1)
+
+            except Exception as e:
+                logger.warning(f"Anthropic API error on attempt {attempt + 1}: {e}")
+                wait_time = (2 ** attempt) + 1
+                logger.info(f"Waiting {wait_time}s before retry...")
+                if attempt < max_retries - 1:
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"API error on final attempt ({attempt + 1}). Giving up.")
+                    return None
+
+        return None
+
 # --- Model Provider Mapping --- 
 SUPPORTED_MODELS = {
     # Gemini
@@ -328,6 +404,11 @@ SUPPORTED_MODELS = {
     "gpt-4o-mini": "openai",
     "gpt-4o": "openai",
     "gpt-4.5-preview": "openai",
+    # Anthropic
+    "claude-3-7-sonnet-20250219": "anthropic",
+    "claude-3-5-sonnet-20241022": "anthropic",
+    "claude-3-5-haiku-20241022": "anthropic",
+    "claude-3-opus-20240229": "anthropic",
 }
 
 # --- Factory Function (Updated) --- 
@@ -352,6 +433,10 @@ def get_ai_player(model_name: str) -> BaseAIPlayer:
         # OpenAI player expects the actual model identifier (e.g., 'gpt-4o')
         actual_model_name = model_name.split('/')[-1] 
         return OpenAIPlayer(actual_model_name)
+    elif provider == "anthropic":
+        # Pass the potentially normalized name to constructor
+        actual_model_name = model_name.split('/')[-1]
+        return AnthropicPlayer(actual_model_name)
     else:
         logger.error(f"Unsupported model name: {model_name}. Not found in SUPPORTED_MODELS map.")
         # Suggest available models
