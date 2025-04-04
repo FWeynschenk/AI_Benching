@@ -134,33 +134,35 @@ def run_daily_puzzle(model_name: str, post_to_bluesky: bool):
 # --- Main Execution & Scheduling --- #
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run the NYT Connections AI Player.")
+    parser = argparse.ArgumentParser(
+        description="Run the NYT Connections AI Player - an AI system that attempts to solve the daily NYT Connections puzzle.",
+        epilog="Example: python main.py --model gemini-2.5-pro-exp-03-25 --run-once --no-post"
+    )
     parser.add_argument(
         '--model', 
         type=str, 
         default=DEFAULT_MODEL, 
-        # Use the filtered list for choices and help text
         choices=ALLOWED_MODELS_FOR_CLI, 
-        metavar='MODEL_NAME', # Use metavar for cleaner help
-        help=f"Specify the AI model to use. Choices: %(choices)s"
+        metavar='MODEL_NAME',
+        help=f"The AI model to use for solving the puzzle. Default: {DEFAULT_MODEL}"
     )
     parser.add_argument(
         '--run-once', 
         action='store_true', 
-        help="Run the puzzle check once and exit, instead of scheduling."
+        help="Run the puzzle solver once immediately and exit. If not specified, runs on a daily schedule at 07:00 local time."
     )
     parser.add_argument(
         '--post',
-        dest='post_to_bluesky', # Store result in this variable
-        action='store_true', # Default is False if not present
-        default=True, # Default behavior is to post
-        help="Enable posting results to Bluesky (default: enabled)."
+        dest='post_to_bluesky',
+        action='store_true',
+        default=True,
+        help="Post results to Bluesky social network (default behavior)."
     )
     parser.add_argument(
         '--no-post',
-        dest='post_to_bluesky', # Store result in this variable
-        action='store_false', # Set to False if this flag is used
-        help="Disable posting results to Bluesky."
+        dest='post_to_bluesky',
+        action='store_false',
+        help="Do not post results to Bluesky social network."
     )
     
     args = parser.parse_args()

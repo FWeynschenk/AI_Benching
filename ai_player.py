@@ -145,7 +145,7 @@ class GeminiPlayer(BaseAIPlayer):
             logger.error(f"Failed to initialize Gemini model '{self.model_name}': {e}")
             raise
             
-    def get_ai_guess(self, remaining_words: list[str], attempt_history: list, max_retries=3) -> list[str] | None:
+    def get_ai_guess(self, remaining_words: list[str], attempt_history: list, max_retries=5) -> list[str] | None:
         if not remaining_words or len(remaining_words) < 4:
             logger.error("Not enough remaining words for AI to make a guess.")
             return None
@@ -161,13 +161,34 @@ class GeminiPlayer(BaseAIPlayer):
                 logger.info(f"Sending request to Gemini API (Attempt {attempt + 1}/{max_retries})...")
                 response = self.model.generate_content(prompt)
 
-                if not response.parts:
-                    logger.warning(f"Gemini response has no parts. Response: {response}")
-                    if response.prompt_feedback and response.prompt_feedback.block_reason:
-                        logger.error(f"Prompt blocked by safety settings. Reason: {response.prompt_feedback.block_reason}")
+                # First check if response was blocked by safety settings
+                if response.prompt_feedback and response.prompt_feedback.block_reason:
+                    logger.error(f"Prompt blocked by safety settings. Reason: {response.prompt_feedback.block_reason}")
+                    return None
+
+                # Check for empty candidates explicitly
+                if not response.candidates:
+                    logger.warning("Gemini response has no candidates (empty response)")
+                    if attempt < max_retries - 1:
+                        wait_time = (3 ** attempt) + 5  # More generous backoff: 5s, 14s, 32s, 86s, 248s
+                        logger.info(f"Empty candidates - waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Empty candidates on final attempt. Giving up.")
                         return None
-                    time.sleep(2 ** attempt)
-                    continue
+
+                if not response.parts:
+                    logger.warning(f"Gemini response has no parts/empty candidates. Response: {response}")
+                    # This could be due to rate limiting - use exponential backoff
+                    if attempt < max_retries - 1:
+                        wait_time = (3 ** attempt) + 5
+                        logger.info(f"Empty response (possible rate limit) - waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Empty response on final attempt. Giving up.")
+                        return None
 
                 response_text = response.text
                 parsed_guess = self._parse_response(response_text, valid_word_set)
@@ -178,17 +199,19 @@ class GeminiPlayer(BaseAIPlayer):
                     logger.warning(f"Failed to parse valid group from Gemini response on attempt {attempt + 1}. Retrying...")
                     conv_logger.debug(f"--- Failed to parse Gemini response on attempt {attempt + 1} ---")
                     prompt += "\n\nPlease ensure you return exactly four words from the list, separated only by commas."
-                    time.sleep(1)
+                    wait_time = (3 ** attempt) + 5
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
 
             except ResourceExhausted as e: 
                 logger.warning(f"Gemini API rate limit hit on attempt {attempt + 1}: {e}")
                 retry_delay_match = re.search(r"retry_delay {\s*seconds: (\d+)\s*}", str(e))
                 wait_time = 0
                 if retry_delay_match:
-                    wait_time = int(retry_delay_match.group(1)) + 1 # Add 1s buffer
-                    logger.info(f"API suggests waiting {wait_time -1}s. Waiting {wait_time}s before retry...")
+                    wait_time = int(retry_delay_match.group(1)) + 5  # Add 5s buffer instead of 1s
+                    logger.info(f"API suggests waiting {wait_time -5}s. Waiting {wait_time}s before retry...")
                 else:
-                    wait_time = (2 ** attempt) + 1
+                    wait_time = (3 ** attempt) + 5
                     logger.warning(f"Could not parse retry_delay from message. Using exponential backoff: waiting {wait_time}s...")
                 
                 if attempt < max_retries - 1: 
@@ -199,7 +222,7 @@ class GeminiPlayer(BaseAIPlayer):
             except Exception as e:
                 logger.error(f"Error calling Gemini API or processing response on attempt {attempt + 1}: {e}", exc_info=True)
                 if attempt < max_retries - 1:
-                     wait_time = 2 ** attempt
+                     wait_time = (3 ** attempt) + 5
                      logger.info(f"Waiting {wait_time}s before retry due to unexpected error...")
                      time.sleep(wait_time)
                 else:
@@ -395,7 +418,7 @@ SUPPORTED_MODELS = {
     "gemini-1.5-flash-8b": "gemini",
     "gemini-2.0-flash": "gemini",
     "gemini-2.0-flash-lite": "gemini",
-    "gemini-2.5-pro-exp-03-25": "gemini",
+    "gemini-2.5-pro-preview-03-25": "gemini",
     # OpenAI
     "o3-mini": "openai",
     "o1-mini": "openai",
