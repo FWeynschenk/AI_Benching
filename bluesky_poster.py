@@ -57,7 +57,7 @@ def _create_bluesky_client() -> Client | None:
         logger.error(f"Failed to log in to Bluesky: {e}")
         return None
 
-def _format_results_for_post(game_summary: dict, puzzle_id: str | int, model_name: str) -> str:
+def _format_results_for_post(game_summary: dict, puzzle_id: str | int, model_name: str, category_guesses: dict[str, str] | None = None) -> str:
     """Formats the game summary into a concise post for Bluesky, including attempt grid."""
     status = "Solved" if game_summary['solved'] else "Did not solve"
     attempts = game_summary['attempts_made']
@@ -91,6 +91,30 @@ def _format_results_for_post(game_summary: dict, puzzle_id: str | int, model_nam
             logger.warning(f"Invalid guessed_words format in attempt log for attempt {attempt_num}: {guessed_words}")
             attempt_grid_lines.append("????") # Placeholder for bad data
 
+    # Add category guesses next to the emoji rows if available
+    if False and category_guesses and game_summary['solved']: # TODO wait for bsky to support some kind of spoiler tag, then remove False.
+        # Find the first correct attempt for each color
+        color_to_attempt = {}
+        for attempt_data in attempt_log:
+            _, _, status, category, color = attempt_data
+            if status == "CORRECT" and color not in color_to_attempt:
+                color_to_attempt[color] = attempt_data
+
+        # Create a mapping of emoji row to category guess
+        emoji_to_guess = {}
+        for color, guess in category_guesses.items():
+            if color in color_to_attempt:
+                attempt_num, words, _, _, _ = color_to_attempt[color]
+                row = ""
+                for word in words:
+                    row += word_map.get(word.upper(), '⬜️')
+                emoji_to_guess[row] = guess
+
+        # Add guesses to the grid lines
+        for i, row in enumerate(attempt_grid_lines):
+            if row in emoji_to_guess:
+                attempt_grid_lines[i] = f"{row} - {emoji_to_guess[row]}"
+
     if attempt_grid_lines:
         # Join the grid lines with newlines
         attempt_grid_str = "\n".join(attempt_grid_lines)
@@ -115,20 +139,21 @@ def _format_results_for_post(game_summary: dict, puzzle_id: str | int, model_nam
     logger.info(f"Formatted Bluesky post (Model: {pretty_model_name}): \n{full_post}")
     return full_post
 
-def post_results_to_bluesky(game_summary: dict, puzzle_id: str | int, model_name: str, max_retries=2):
+def post_results_to_bluesky(game_summary: dict, puzzle_id: str | int, model_name: str, category_guesses: dict[str, str] | None = None, max_retries=2):
     """Posts the formatted game results to Bluesky.
 
     Args:
         game_summary: The summary dictionary from the Game object.
         puzzle_id: The ID of the puzzle played.
         model_name: The name of the AI model used for this run.
+        category_guesses: Dictionary mapping color to AI's guessed category name.
         max_retries: Number of times to retry posting on failure.
     """
     client = _create_bluesky_client()
     if not client:
         return # Error already logged
 
-    post_text = _format_results_for_post(game_summary, puzzle_id, model_name)
+    post_text = _format_results_for_post(game_summary, puzzle_id, model_name, category_guesses)
 
     for attempt in range(max_retries):
         try:

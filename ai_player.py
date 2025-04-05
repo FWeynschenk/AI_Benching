@@ -69,13 +69,13 @@ class BaseAIPlayer(ABC):
                 num, words, status, category, color = attempt
                 words_str = ", ".join(words)
                 if status == "CORRECT":
-                    prompt += f"- Attempt {num}: {words_str} -> CORRECT ({category} - {color})\n"
+                    prompt += f"- Attempt {num}: {words_str} -> CORRECT\n"
                 elif status == "ONE_AWAY":
                     prompt += f"- Attempt {num}: {words_str} -> INCORRECT (Hint: One Away)\n"
                 elif status == "INCORRECT":
                      prompt += f"- Attempt {num}: {words_str} -> INCORRECT\n"
                 elif status == "ALREADY_FOUND":
-                     prompt += f"- Attempt {num}: {words_str} -> Already Found ({category} - {color})\n"
+                     prompt += f"- Attempt {num}: {words_str} -> Already Found\n"
             prompt += "\n"
 
         prompt += "Based on the available words and previous attempts, please identify one group of four related words. "
@@ -111,6 +111,18 @@ class BaseAIPlayer(ABC):
         else:
             logger.warning(f"Could not parse 4 comma-separated words from AI response: {response_text}")
             return None
+
+    @abstractmethod
+    def get_category_guesses(self, found_groups: list[dict]) -> dict[str, str]:
+        """Gets the AI's category guesses for each found group.
+
+        Args:
+            found_groups: List of dictionaries containing group details (color, members, actual category)
+
+        Returns:
+            Dictionary mapping color to AI's guessed category name
+        """
+        pass
 
 # --- Gemini Player --- 
 class GeminiPlayer(BaseAIPlayer):
@@ -232,6 +244,74 @@ class GeminiPlayer(BaseAIPlayer):
         conv_logger.error(f"--- Failed to get valid guess from Gemini after {max_retries} attempts --- ")
         return None
 
+    def get_category_guesses(self, found_groups: list[dict]) -> dict[str, str]:
+        """Gets Gemini's category guesses for each found group."""
+        prompt = "You just successfully solved a Connections puzzle! For each group of words you found, please provide a short category name that describes what they have in common.\n\n"
+        
+        for group in found_groups:
+            color = group['color']
+            words = group['members']
+            prompt += f"{color} group words: {', '.join(words)}\n"
+        
+        prompt += "\nPlease provide your category guesses in the format:\n"
+        prompt += "Yellow: [your guess]\n"
+        prompt += "Green: [your guess]\n"
+        prompt += "Blue: [your guess]\n"
+        prompt += "Purple: [your guess]\n"
+
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                response = self.model.generate_content(prompt)
+                response_text = response.text.strip()
+                
+                # Parse the response to extract category guesses
+                category_guesses = {}
+                for line in response_text.split('\n'):
+                    if ':' in line:
+                        color, guess = line.split(':', 1)
+                        color = color.strip()
+                        guess = guess.strip()
+                        if color in ['Yellow', 'Green', 'Blue', 'Purple']:
+                            category_guesses[color] = guess
+                
+                # Validate we got guesses for all colors
+                if len(category_guesses) == 4:
+                    return category_guesses
+                else:
+                    logger.warning(f"Gemini category guesses incomplete on attempt {attempt + 1}. Got {len(category_guesses)}/4 guesses.")
+                    if attempt < 2:  # If not last attempt
+                        wait_time = (3 ** attempt) + 5  # Exponential backoff: 5s, 14s, 32s
+                        logger.info(f"Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Failed to get complete category guesses after 3 attempts")
+                        return category_guesses  # Return partial results if any
+
+            except ResourceExhausted as e:
+                logger.warning(f"Gemini API rate limit hit on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = (3 ** attempt) + 5
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Rate limit hit on final attempt. Giving up.")
+                    return {}
+
+            except Exception as e:
+                logger.error(f"Error getting category guesses from Gemini on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = (3 ** attempt) + 5
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Failed to get category guesses after 3 attempts")
+                    return {}
+
+        return {}  # Should never reach here, but just in case
+
 # --- OpenAI Player --- 
 class OpenAIPlayer(BaseAIPlayer):
     """AI Player implementation using the OpenAI API."""
@@ -335,6 +415,88 @@ class OpenAIPlayer(BaseAIPlayer):
         conv_logger.error(f"--- Failed to get valid guess from OpenAI after {max_retries} attempts --- ")
         return None
 
+    def get_category_guesses(self, found_groups: list[dict]) -> dict[str, str]:
+        """Gets OpenAI's category guesses for each found group."""
+        prompt = "You just successfully solved a Connections puzzle! For each group of words you found, please provide a short category name that describes what they have in common.\n\n"
+        
+        for group in found_groups:
+            color = group['color']
+            words = group['members']
+            prompt += f"{color} group words: {', '.join(words)}\n"
+        
+        prompt += "\nPlease provide your category guesses in the format:\n"
+        prompt += "Yellow: [your guess]\n"
+        prompt += "Green: [your guess]\n"
+        prompt += "Blue: [your guess]\n"
+        prompt += "Purple: [your guess]\n"
+
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                response_text = response.choices[0].message.content.strip()
+                
+                # Parse the response to extract category guesses
+                category_guesses = {}
+                for line in response_text.split('\n'):
+                    if ':' in line:
+                        color, guess = line.split(':', 1)
+                        color = color.strip()
+                        guess = guess.strip()
+                        if color in ['Yellow', 'Green', 'Blue', 'Purple']:
+                            category_guesses[color] = guess
+                
+                # Validate we got guesses for all colors
+                if len(category_guesses) == 4:
+                    return category_guesses
+                else:
+                    logger.warning(f"OpenAI category guesses incomplete on attempt {attempt + 1}. Got {len(category_guesses)}/4 guesses.")
+                    if attempt < 2:  # If not last attempt
+                        wait_time = (2 ** attempt) + 1  # Exponential backoff: 1s, 3s, 5s
+                        logger.info(f"Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Failed to get complete category guesses after 3 attempts")
+                        return category_guesses  # Return partial results if any
+
+            except RateLimitError as e:
+                logger.warning(f"OpenAI API rate limit hit on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = (2 ** attempt) + 1
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Rate limit hit on final attempt. Giving up.")
+                    return {}
+
+            except APIError as e:
+                logger.error(f"OpenAI API error on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = 2 ** attempt
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("API error on final attempt. Giving up.")
+                    return {}
+
+            except Exception as e:
+                logger.error(f"Error getting category guesses from OpenAI on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = 2 ** attempt
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Failed to get category guesses after 3 attempts")
+                    return {}
+
+        return {}  # Should never reach here, but just in case
+
 # --- Anthropic Player --- 
 class AnthropicPlayer(BaseAIPlayer):
     """AI Player implementation using the Anthropic API."""
@@ -409,6 +571,68 @@ class AnthropicPlayer(BaseAIPlayer):
                     return None
 
         return None
+
+    def get_category_guesses(self, found_groups: list[dict]) -> dict[str, str]:
+        """Gets Anthropic's category guesses for each found group."""
+        prompt = "You just successfully solved a Connections puzzle! For each group of words you found, please provide a short category name that describes what they have in common.\n\n"
+        
+        for group in found_groups:
+            color = group['color']
+            words = group['members']
+            prompt += f"{color} group words: {', '.join(words)}\n"
+        
+        prompt += "\nPlease provide your category guesses in the format:\n"
+        prompt += "Yellow: [your guess]\n"
+        prompt += "Green: [your guess]\n"
+        prompt += "Blue: [your guess]\n"
+        prompt += "Purple: [your guess]\n"
+
+        for attempt in range(3):  # Try up to 3 times
+            try:
+                response = self.client.messages.create(
+                    model=self.model_name,
+                    max_tokens=1024,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.7
+                )
+                response_text = response.content[0].text.strip()
+                
+                # Parse the response to extract category guesses
+                category_guesses = {}
+                for line in response_text.split('\n'):
+                    if ':' in line:
+                        color, guess = line.split(':', 1)
+                        color = color.strip()
+                        guess = guess.strip()
+                        if color in ['Yellow', 'Green', 'Blue', 'Purple']:
+                            category_guesses[color] = guess
+                
+                # Validate we got guesses for all colors
+                if len(category_guesses) == 4:
+                    return category_guesses
+                else:
+                    logger.warning(f"Anthropic category guesses incomplete on attempt {attempt + 1}. Got {len(category_guesses)}/4 guesses.")
+                    if attempt < 2:  # If not last attempt
+                        wait_time = (2 ** attempt) + 1  # Exponential backoff: 1s, 3s, 5s
+                        logger.info(f"Waiting {wait_time}s before retry...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error("Failed to get complete category guesses after 3 attempts")
+                        return category_guesses  # Return partial results if any
+
+            except Exception as e:
+                logger.error(f"Error getting category guesses from Anthropic on attempt {attempt + 1}: {e}")
+                if attempt < 2:
+                    wait_time = (2 ** attempt) + 1
+                    logger.info(f"Waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("Failed to get category guesses after 3 attempts")
+                    return {}
+
+        return {}  # Should never reach here, but just in case
 
 # --- Model Provider Mapping --- 
 SUPPORTED_MODELS = {

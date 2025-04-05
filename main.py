@@ -86,12 +86,22 @@ def run_daily_puzzle(model_name: str, post_to_bluesky: bool):
     # Log the found groups for detail
     for group in game_summary.get('found_groups_details', []):
         logger.info(f"  - Found ({group['color']}): {group['category']} - {group['members']}")
-    # Optionally log the full attempt history from game_summary['attempt_log'] if needed
+
+    # Get AI category guesses if puzzle was solved
+    category_guesses = {}
+    if game_summary['solved']:
+        try:
+            category_guesses = ai_player.get_category_guesses(game_summary['found_groups_details'])
+            logger.info("AI Category Guesses:")
+            for color, guess in category_guesses.items():
+                logger.info(f"  - {color}: {guess}")
+        except Exception as e:
+            logger.error(f"Error getting AI category guesses: {e}")
 
     # 5. Post to Bluesky (Conditionally)
     if post_to_bluesky:
         try:
-            post_results_to_bluesky(game_summary, puzzle_id, model_name=model_name)
+            post_results_to_bluesky(game_summary, puzzle_id, model_name=model_name, category_guesses=category_guesses)
         except Exception as e:
             logger.error(f"Error during Bluesky posting: {e}", exc_info=True)
     else:
@@ -106,7 +116,8 @@ def run_daily_puzzle(model_name: str, post_to_bluesky: bool):
             'puzzleid': puzzle_id,
             'model': model_name,
             'success': game_summary['solved'],
-            'attempts': game_summary['attempts_made']
+            'attempts': game_summary['attempts_made'],
+            'category_guesses': category_guesses if category_guesses else None
         }
 
         # Read existing data
