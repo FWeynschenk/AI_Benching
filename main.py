@@ -117,6 +117,8 @@ def run_daily_puzzle(model_name: str, post_to_bluesky: bool):
             'model': model_name,
             'success': game_summary['solved'],
             'attempts': game_summary['attempts_made'],
+            # Extract the guesses from the game log
+            'guesses': [attempt[1] for attempt in game.log if attempt[0] > 0], # attempt[1] is the words list, skip initial state
             'category_guesses': category_guesses if category_guesses else None
         }
 
