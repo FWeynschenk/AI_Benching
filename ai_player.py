@@ -141,17 +141,10 @@ class GeminiPlayer(BaseAIPlayer):
 
     def _initialize_model(self):
         logger.info(f"Initializing GeminiPlayer with model: {self.model_name}")
-        self.generation_config = { "temperature": 0.7, "top_p": 1, "top_k": 1, "max_output_tokens": 2048 }
-        self.safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
-        ]
+        self.generation_config = { "temperature": 0.7, "top_p": 1, "top_k": 1, "max_output_tokens": 4096 }
         try:
             self.model = genai.GenerativeModel(model_name=self.model_name,
-                                               generation_config=self.generation_config,
-                                               safety_settings=self.safety_settings)
+                                               generation_config=self.generation_config)
             logger.info(f"Gemini model '{self.model_name}' initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model '{self.model_name}': {e}")
