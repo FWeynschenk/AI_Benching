@@ -642,6 +642,7 @@ SUPPORTED_MODELS = {
     "gemini-1.5-flash-8b": "gemini",
     "gemini-2.0-flash": "gemini",
     "gemini-2.0-flash-lite": "gemini",
+    "gemini-2.5-pro-preview-03-25": "gemini",
     "gemini-2.5-pro-exp-03-25": "gemini",
     # OpenAI
     "o3-mini": "openai",
