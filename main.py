@@ -99,13 +99,17 @@ def run_daily_puzzle(model_name: str, post_to_bluesky: bool):
             logger.error(f"Error getting AI category guesses: {e}")
 
     # 5. Post to Bluesky (Conditionally)
-    if post_to_bluesky:
+    # Only post if explicitly enabled AND (puzzle was solved OR max attempts were used)
+    post_condition_met = game_summary['solved'] or game.attempts >= game.MAX_ATTEMPTS
+    if post_to_bluesky and post_condition_met:
         try:
             post_results_to_bluesky(game_summary, puzzle_id, model_name=model_name, category_guesses=category_guesses)
         except Exception as e:
             logger.error(f"Error during Bluesky posting: {e}", exc_info=True)
-    else:
-        logger.info("Skipping Bluesky post due to --no-post flag.")
+    elif post_to_bluesky and not post_condition_met:
+        logger.info(f"Skipping Bluesky post: Puzzle not solved (Attempts: {game.attempts}/{game.MAX_ATTEMPTS}) and max attempts not reached (may indicate an earlier API error).")
+    else: # This covers the case where post_to_bluesky was False initially
+        logger.info("Skipping Bluesky post as requested by flag (--no-post).")
 
     # 6. Save results to JSON
     results_file = 'results.json'

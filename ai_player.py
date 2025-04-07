@@ -52,7 +52,7 @@ class BaseAIPlayer(ABC):
         """Builds the core text prompt (can be reused/adapted by subclasses)."""
         # This prompt structure seems generally applicable
         prompt = f"You are playing the NYT Connections puzzle game. "
-        prompt += "The goal is to find groups of four words that share a common theme or category.\n\n"
+        prompt += "The goal is to find groups of four words that share a common theme or category.\n Beware that the creator of the puzzle will try to trick you. If five words are related to each other, they can't all be in the same group.\n\n"
         prompt += "Here are the rules:\n"
         prompt += "1. Look at the available words and try to identify potential connections.\n"
         prompt += "2. Select exactly four words you believe belong together in a single group.\n"
@@ -141,10 +141,17 @@ class GeminiPlayer(BaseAIPlayer):
 
     def _initialize_model(self):
         logger.info(f"Initializing GeminiPlayer with model: {self.model_name}")
-        self.generation_config = { "temperature": 0.7, "top_p": 1, "top_k": 1, "max_output_tokens": 4096 }
+        self.generation_config = { "temperature": 0.7, "top_p": 1, "top_k": 1 }
+        self.safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
         try:
             self.model = genai.GenerativeModel(model_name=self.model_name,
-                                               generation_config=self.generation_config)
+                                               generation_config=self.generation_config,
+                                               safety_settings=self.safety_settings)
             logger.info(f"Gemini model '{self.model_name}' initialized successfully.")
         except Exception as e:
             logger.error(f"Failed to initialize Gemini model '{self.model_name}': {e}")
@@ -165,7 +172,6 @@ class GeminiPlayer(BaseAIPlayer):
             try:
                 logger.info(f"Sending request to Gemini API (Attempt {attempt + 1}/{max_retries})...")
                 response = self.model.generate_content(prompt)
-
                 # First check if response was blocked by safety settings
                 if response.prompt_feedback and response.prompt_feedback.block_reason:
                     logger.error(f"Prompt blocked by safety settings. Reason: {response.prompt_feedback.block_reason}")
@@ -174,8 +180,40 @@ class GeminiPlayer(BaseAIPlayer):
                 # Check for empty candidates explicitly
                 if not response.candidates:
                     logger.warning("Gemini response has no candidates (empty response)")
+                    # --- MODIFIED LOGGING ---
+                    # Try to access finish reason and safety ratings from the underlying proto result
+                    finish_reason = "UNKNOWN"
+                    safety_ratings = "UNKNOWN"
+                    try:
+                        if hasattr(response, '_result') and response._result:
+                           # Access fields directly from the protos.GenerateContentResponse
+                           # Adjust field names based on actual protobuf definition if necessary
+                           finish_reason = getattr(response._result, 'finish_reason', "NOT_FOUND") 
+                           safety_ratings = getattr(response._result, 'safety_ratings', "NOT_FOUND")
+                           # Also log the prompt feedback for completeness here
+                           prompt_feedback_info = getattr(response, 'prompt_feedback', "NOT_FOUND")
+                        else:
+                           prompt_feedback_info = getattr(response, 'prompt_feedback', "NOT_FOUND")
+
+                        logger.warning(f"Empty candidates details: FinishReason={finish_reason}, SafetyRatings={safety_ratings}, PromptFeedback={prompt_feedback_info}")
+
+                        # --- ADDED FOR DEEPER INSPECTION ---
+                        try:
+                           if hasattr(response, '_result') and response._result:
+                              logger.debug(f"Attributes of response._result: {dir(response._result)}")
+                              logger.debug(f"String representation of response._result: {str(response._result)}")
+                           else:
+                              logger.debug("response._result object not found or is empty.")
+                        except Exception as inspect_e:
+                           logger.error(f"Error during deeper inspection of response._result: {inspect_e}")
+                        # --- END DEEPER INSPECTION ---
+
+                    except Exception as log_e:
+                         logger.error(f"Error trying to log detailed empty response info: {log_e}")
+                    # --- END MODIFIED LOGGING ---
+
                     if attempt < max_retries - 1:
-                        wait_time = (3 ** attempt) + 5  # More generous backoff: 5s, 14s, 32s, 86s, 248s
+                        wait_time = (3 ** attempt) + 5
                         logger.info(f"Empty candidates - waiting {wait_time}s before retry...")
                         time.sleep(wait_time)
                         continue
@@ -410,7 +448,7 @@ class OpenAIPlayer(BaseAIPlayer):
 
     def get_category_guesses(self, found_groups: list[dict]) -> dict[str, str]:
         """Gets OpenAI's category guesses for each found group."""
-        prompt = "You just successfully solved a Connections puzzle! For each group of words you found, please provide a short category name that describes what they have in common.\n\n"
+        prompt = "This is the result of a NYT Connections puzzle. For each group of words found, provide a short category name that describes what they exclusively have in common, the category of a group should not apply to words in one of the other groups.\n\n"
         
         for group in found_groups:
             color = group['color']
