@@ -673,13 +673,16 @@ SUPPORTED_MODELS = {
     "gemini-1.5-flash-8b": "gemini",
     "gemini-2.0-flash": "gemini",
     "gemini-2.0-flash-lite": "gemini",
-    "gemini-2.5-pro-preview-03-25": "gemini",
+    "gemini-2.5-pro-preview-05-06": "gemini",
     "gemini-2.5-pro-exp-03-25": "gemini",
+    "gemini-2.5-flash-preview-05-20": "gemini",
     # OpenAI
+    "o4-mini": "openai",
     "o3-mini": "openai",
     "o1-mini": "openai",
     "o1-pro": "openai",
     "o1": "openai",
+    "o3": "openai",
     "gpt-4o-mini": "openai",
     "gpt-4o": "openai",
     "gpt-4.5-preview": "openai",
@@ -688,6 +691,7 @@ SUPPORTED_MODELS = {
     "claude-3-5-sonnet-20241022": "anthropic",
     "claude-3-5-haiku-20241022": "anthropic",
     "claude-3-opus-20240229": "anthropic",
+    "claude-sonnet-4-20250514": "anthropic",
 }
 
 # --- Factory Function (Updated) --- 

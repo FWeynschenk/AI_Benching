@@ -25,13 +25,16 @@ MODEL_PRETTY_NAMES = {
     "gemini-1.5-flash-8b": "Gemini 1.5 Flash (8B)", 
     "gemini-2.0-flash": "Gemini 2.0 Flash", 
     "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite", 
-    "gemini-2.5-pro-preview-03-25": "Gemini 2.5 Pro",
+    "gemini-2.5-pro-preview-05-06": "Gemini 2.5 Pro",
     "gemini-2.5-pro-exp-03-25": "Gemini 2.5 Pro Exp", 
+    "gemini-2.5-flash-preview-05-20": "Gemini 2.5 Flash",
     # OpenAI (Curated list)
+    "o4-mini": "OpenAI o4 Mini",
     "o3-mini": "OpenAI o3 Mini",
     "o1-mini": "OpenAI o1 Mini",
     "o1-pro": "OpenAI o1 Pro",
     "o1": "OpenAI o1",
+    "o3": "OpenAI o3",
     "gpt-4o-mini": "OpenAI GPT-4o Mini",
     "gpt-4o": "OpenAI GPT-4o",
     "gpt-4.5-preview": "OpenAI GPT-4.5 Preview",
@@ -40,6 +43,7 @@ MODEL_PRETTY_NAMES = {
     "claude-3-5-sonnet-20241022": "Claude 3.5 Sonnet",
     "claude-3-5-haiku-20241022": "Claude 3.5 Haiku",
     "claude-3-opus-20240229": "Claude 3 Opus",
+    "claude-sonnet-4-20250514": "Claude Sonnet 4",
 }
 
 def _create_bluesky_client() -> Client | None:
