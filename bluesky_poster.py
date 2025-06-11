@@ -26,6 +26,7 @@ MODEL_PRETTY_NAMES = {
     "gemini-2.0-flash": "Gemini 2.0 Flash", 
     "gemini-2.0-flash-lite": "Gemini 2.0 Flash Lite", 
     "gemini-2.5-pro-preview-05-06": "Gemini 2.5 Pro",
+    "gemini-2.5-pro-preview-06-05": "Gemini 2.5 Pro",
     "gemini-2.5-pro-exp-03-25": "Gemini 2.5 Pro Exp", 
     "gemini-2.5-flash-preview-05-20": "Gemini 2.5 Flash",
     # OpenAI (Curated list)
