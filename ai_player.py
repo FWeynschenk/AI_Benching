@@ -81,6 +81,7 @@ class BaseAIPlayer(ABC):
         prompt += "Based on the available words and previous attempts, please identify one group of four related words. "
         prompt += "Return ONLY the four words, separated by commas. For example: WORD1, WORD2, WORD3, WORD4"
         prompt += "DO NOT include any other text or comments in your response."
+        prompt += "Adhere exactly to the response format. `WORD1, WORD2, WORD3, WORD4`"
 
         return prompt
 
