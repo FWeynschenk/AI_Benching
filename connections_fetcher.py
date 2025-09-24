@@ -55,6 +55,18 @@ def fetch_latest_puzzle():
 
         logger.info(f"Successfully fetched new puzzle data for ID: {puzzle_id} ({puzzle_date_str})")
         _last_processed_puzzle_id = puzzle_id
+
+        new_level_counter = 0
+        for answer in latest_puzzle['answers']:
+        # Check if the level is -1
+            if answer.get('level') == -1:
+            # Update the level in place with the counter's value
+                answer['level'] = new_level_counter
+            # Increment the counter for the next broken item
+                new_level_counter += 1
+
+
+        print(latest_puzzle)
         return latest_puzzle
 
     except requests.exceptions.RequestException as e:
