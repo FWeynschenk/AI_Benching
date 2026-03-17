@@ -682,12 +682,15 @@ SUPPORTED_MODELS = {
     "gemini-2.5-pro-preview-06-05": "gemini",
     "gemini-2.5-flash-preview-05-20": "gemini",
     # OpenAI (latest)
-    "gpt-4.1": "openai",
-    "gpt-4.1-mini": "openai",
+    "gpt-5.4": "openai",
+    "gpt-5.4-pro": "openai",
+    "gpt-5-mini": "openai",
     "o3": "openai",
     "o3-pro": "openai",
     "o4-mini": "openai",
     # OpenAI (legacy)
+    "gpt-4.1": "openai",
+    "gpt-4.1-mini": "openai",
     "o3-mini": "openai",
     "o1": "openai",
     "o1-pro": "openai",
