@@ -669,32 +669,45 @@ class AnthropicPlayer(BaseAIPlayer):
 
 # --- Model Provider Mapping --- 
 SUPPORTED_MODELS = {
-    # Gemini
-    "gemini-1.5-pro": "gemini",
-    "gemini-1.5-flash": "gemini",
-    "gemini-1.5-flash-8b": "gemini",
+    # Gemini (latest)
+    "gemini-2.5-pro": "gemini",
+    "gemini-2.5-flash": "gemini",
+    "gemini-2.5-flash-lite": "gemini",
+    "gemini-3.1-pro-preview": "gemini",
+    "gemini-3-flash-preview": "gemini",
+    "gemini-3.1-flash-lite": "gemini",
+    "gemini-3.1-flash-lite-preview": "gemini",
+    # Gemini (legacy)
     "gemini-2.0-flash": "gemini",
     "gemini-2.0-flash-lite": "gemini",
-    "gemini-2.5-pro-preview-05-06": "gemini",
     "gemini-2.5-pro-preview-06-05": "gemini",
-    "gemini-2.5-pro-exp-03-25": "gemini",
     "gemini-2.5-flash-preview-05-20": "gemini",
-    # OpenAI
-    "o4-mini": "openai",
-    "o3-mini": "openai",
-    "o1-mini": "openai",
-    "o1-pro": "openai",
-    "o1": "openai",
+    # OpenAI (latest)
+    "gpt-5.4": "openai",
+    "gpt-5.4-pro": "openai",
+    "gpt-5-mini": "openai",
     "o3": "openai",
-    "gpt-4o-mini": "openai",
+    "o3-pro": "openai",
+    "o4-mini": "openai",
+    # OpenAI (legacy)
+    "gpt-4.1": "openai",
+    "gpt-4.1-mini": "openai",
+    "o3-mini": "openai",
+    "o1": "openai",
+    "o1-pro": "openai",
     "gpt-4o": "openai",
+    "gpt-4o-mini": "openai",
     "gpt-4.5-preview": "openai",
-    # Anthropic
+    # Anthropic (latest)
+    "claude-opus-4-6": "anthropic",
+    "claude-sonnet-4-6": "anthropic",
+    "claude-haiku-4-5-20251001": "anthropic",
+    # Anthropic (legacy)
     "claude-3-7-sonnet-20250219": "anthropic",
-    "claude-3-5-sonnet-20241022": "anthropic",
-    "claude-3-5-haiku-20241022": "anthropic",
-    "claude-3-opus-20240229": "anthropic",
     "claude-sonnet-4-20250514": "anthropic",
+    "claude-3-5-haiku-20241022": "anthropic",
+    "claude-3-5-sonnet-20241022": "anthropic",
+    "claude-3-opus-20240229": "anthropic",
 }
 
 # --- Factory Function (Updated) --- 
