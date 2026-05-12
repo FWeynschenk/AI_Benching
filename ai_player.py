@@ -676,7 +676,7 @@ SUPPORTED_MODELS = {
     "gemini-3.1-pro-preview": "gemini",
     "gemini-3-flash-preview": "gemini",
     "gemini-3.1-flash-lite": "gemini",
-    "gemini-3.1-flash-lite-preview": "gemini",
+    "gemini-3.1-flash-lite-preview": "gemini",  # deprecated — redirected to GA by get_ai_player
     # Gemini (legacy)
     "gemini-2.0-flash": "gemini",
     "gemini-2.0-flash-lite": "gemini",
@@ -710,9 +710,19 @@ SUPPORTED_MODELS = {
     "claude-3-opus-20240229": "anthropic",
 }
 
-# --- Factory Function (Updated) --- 
+# Maps deprecated model names to their GA replacements.
+DEPRECATED_MODEL_ALIASES = {
+    "gemini-3.1-flash-lite-preview": "gemini-3.1-flash-lite",
+}
+
+# --- Factory Function (Updated) ---
 def get_ai_player(model_name: str) -> BaseAIPlayer:
     """Factory function to create the correct AI player based on model name using a dictionary lookup."""
+    if model_name in DEPRECATED_MODEL_ALIASES:
+        replacement = DEPRECATED_MODEL_ALIASES[model_name]
+        logger.warning(f"Model '{model_name}' is deprecated; using '{replacement}' instead.")
+        model_name = replacement
+
     # Normalize the input model name slightly (lowercase, remove potential openai/ prefix)
     # This helps match keys in the dictionary if user uses slightly different casing or includes prefix
     normalized_name_for_lookup = model_name.lower().split('/')[-1]
